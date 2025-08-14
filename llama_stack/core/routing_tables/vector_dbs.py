@@ -8,7 +8,11 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
-from llama_stack.apis.common.errors import ModelNotFoundError, ModelTypeError, VectorStoreNotFoundError
+from llama_stack.apis.common.errors import (
+    ModelNotFoundError,
+    ModelTypeError,
+    VectorStoreNotFoundError,
+)
 from llama_stack.apis.models import ModelType
 from llama_stack.apis.resource import ResourceType
 from llama_stack.apis.vector_dbs import ListVectorDBsResponse, VectorDB, VectorDBs
@@ -54,14 +58,20 @@ class VectorDBsRoutingTable(CommonRoutingTableImpl, VectorDBs):
     ) -> VectorDB:
         provider_vector_db_id = provider_vector_db_id or vector_db_id
         if provider_id is None:
-            if len(self.impls_by_provider_id) > 0:
-                provider_id = list(self.impls_by_provider_id.keys())[0]
-                if len(self.impls_by_provider_id) > 1:
-                    logger.warning(
-                        f"No provider specified and multiple providers available. Arbitrarily selected the first provider {provider_id}."
-                    )
+            num_providers = len(self.impls_by_provider_id)
+            
+            if num_providers == 1:
+                provider_id = next(iter(self.impls_by_provider_id))
+            elif num_providers > 1:
+                available = ", ".join(self.impls_by_provider_id.keys())
+                raise ValueError(
+                    f"Multiple vector_io providers are registered ({available}), but no provider_id was specified. "
+                    "Please specify a provider_id to avoid ambiguity."
+                )
             else:
-                raise ValueError("No provider available. Please configure a vector_io provider.")
+                raise ValueError(
+                    "No provider available. Please configure a vector_io provider."
+                )
         model = await lookup_model(self, embedding_model)
         if model is None:
             raise ModelNotFoundError(embedding_model)
